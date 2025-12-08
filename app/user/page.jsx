@@ -1,115 +1,160 @@
 "use client";
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, getDocs, query, orderBy, doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import { enableIndexedDbPersistence } from "firebase/firestore";
-import { useRouter } from "next/navigation";
+import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
 import { ADMIN_EMAILS } from "@/lib/config";
 
-// Custom hooks for better organization
 const useAuth = () => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
+    const unsub = onAuthStateChanged(auth, (u) => {
       if (!u) {
-        window.location.href = "/login";
-      } else {
-        const isAdmin = ADMIN_EMAILS.includes(u.email || "");
-        const allowPreview = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('adminPreview') === '1';
-        if (isAdmin && !allowPreview) {
-          window.location.href = "/admin";
-          return;
-        }
-        setUser(u);
+        setUser(null);
         setIsLoading(false);
-        try {
-          const userRef = doc(db, "users", u.uid);
-          await updateDoc(userRef, { 
-            isOnline: true, 
-            lastActive: new Date(), 
-            lastPageVisited: isAdmin && allowPreview ? 'user-preview' : 'user' 
-          });
-        } catch (error) {
-          console.error("Error updating user status:", error);
-        }
+        return;
       }
+      const isAdmin = ADMIN_EMAILS.includes(u.email || "");
+      const allowPreview = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("adminPreview") === "1";
+      if (isAdmin && !allowPreview) {
+        window.location.href = "/websiteadminpage";
+        return;
+      }
+      setUser(u);
+      setIsLoading(false);
     });
     return () => unsub();
   }, []);
-
   return { user, isLoading };
 };
 
-const useFirestorePersistence = () => {
+export default function UserPage() {
+  const { user, isLoading } = useAuth();
+  const [courses, setCourses] = useState([]);
+  const [error, setError] = useState("");
+
   useEffect(() => {
-    const enablePersistence = async () => {
+    const fetch = async () => {
       try {
-        await enableIndexedDbPersistence(db);
-      } catch (err) {
-        if (err.code == 'failed-precondition') {
-          console.log("Multiple tabs open, persistence can only be enabled in one tab at a time.");
-        } else if (err.code == 'unimplemented') {
-          console.log("The current browser doesn't support persistence.");
-        }
+        const q = query(collection(db, "adminContent"), orderBy("createdAt", "desc"));
+        const snap = await getDocs(q);
+        const list = [];
+        snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+        setCourses(list);
+      } catch (e) {
+        setError("Failed to load courses");
+        console.error(e);
       }
     };
-    enablePersistence();
-  }, []);
-};
-
-const useSearchState = () => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
-  const [currentPage, setCurrentPage] = useState(0);
-  
-  const SEARCH_QUERY_KEY = 'bf_user_search_q';
-  const SEARCH_PAGE_KEY = 'bf_user_search_p';
-
-  useEffect(() => {
-    try {
-      const savedQ = localStorage.getItem(SEARCH_QUERY_KEY);
-      const savedP = localStorage.getItem(SEARCH_PAGE_KEY);
-      if (typeof savedQ === 'string') setSearchQuery(savedQ);
-      const p = savedP != null ? parseInt(savedP, 10) : NaN;
-      if (!isNaN(p) && p >= 0) setCurrentPage(p);
-    } catch {}
+    fetch();
   }, []);
 
-  useEffect(() => { 
-    try { localStorage.setItem(SEARCH_QUERY_KEY, searchQuery); } catch {} 
-  }, [searchQuery]);
-  
-  useEffect(() => { 
-    try { localStorage.setItem(SEARCH_PAGE_KEY, String(currentPage)); } catch {} 
-  }, [currentPage]);
-
-  const goHome = () => {
+  const handleLogout = async () => {
     try {
-      localStorage.removeItem(SEARCH_QUERY_KEY);
-      localStorage.removeItem(SEARCH_PAGE_KEY);
-    } catch {}
-    setSearchQuery("");
-    setCurrentPage(0);
-    if (typeof window !== 'undefined') {
-      window.location.href = '/user';
+      if (user) {
+        const userRef = doc(db, "users", user.uid);
+        await updateDoc(userRef, { isOnline: false, lastActive: new Date() });
+      }
+      await signOut(auth);
+      window.location.href = "/websiteDashboard";
+    } catch {
+      await signOut(auth);
+      window.location.href = "/websiteDashboard";
     }
   };
 
-  return {
-    searchQuery,
-    setSearchQuery,
-    searchFocused,
-    setSearchFocused,
-    currentPage,
-    setCurrentPage,
-    goHome
-  };
-};
+  const grouped = useMemo(() => {
+    return courses.map((c) => {
+      const sections = Array.isArray(c.sectionControl) ? c.sectionControl : [10];
+      const fields = Array.isArray(c.fields) ? c.fields : [];
+      const result = [];
+      let idx = 0;
+      for (let s = 0; s < sections.length; s++) {
+        const count = sections[s] || 0;
+        result.push(fields.slice(idx, idx + count));
+        idx += count;
+      }
+      if (idx < fields.length) {
+        result.push(fields.slice(idx));
+      }
+      return { course: c, sections: result };
+    });
+  }, [courses]);
 
-// UI Components for better modularity
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black text-white">Loading...</div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
+      <div className="max-w-7xl mx-auto p-4">
+        <header className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold">User Dashboard</h1>
+            <p className="text-xs text-gray-400">{user ? user.email : "Guest"}</p>
+          </div>
+          <div>
+            {user ? (
+              <button onClick={handleLogout} className="px-3 py-2 bg-red-600 rounded text-white">Logout</button>
+            ) : (
+              <a href="/login" className="px-3 py-2 bg-green-600 rounded text-white">Login</a>
+            )}
+          </div>
+        </header>
+
+        {error && (
+          <div className="bg-indigo-900/50 border border-indigo-700 p-3 rounded mb-4">{error}</div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {grouped.map(({ course, sections }) => (
+            <div key={course.id} className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+              <div className="aspect-video bg-gray-800">
+                <img src={course.imageUrl || "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=1200&q=80"} alt={course.courseName || "Course"} className="w-full h-full object-cover" />
+              </div>
+              <div className="p-3">
+                <h3 className="font-semibold mb-2">{course.courseName || "Untitled Course"}</h3>
+                <div className="space-y-2">
+                  {sections.map((fields, sIdx) => (
+                    <div key={sIdx} className="bg-gray-800/50 rounded p-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-semibold">Section {sIdx + 1}</span>
+                        <span className="text-xs text-gray-400">{fields.length} items</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {fields
+                          .map((f, vIdx) => ({ f, vIdx }))
+                          .filter(({ f }) => typeof f === "string" && f.trim())
+                          .map(({ f, vIdx }) => {
+                            const isLink = f.startsWith("http");
+                            const label = `Download Section ${sIdx + 1} • Part ${1} • Video ${vIdx + 1}`;
+                            return (
+                              <a
+                                key={vIdx}
+                                href={isLink ? f : "#"}
+                                target={isLink ? "_blank" : undefined}
+                                rel={isLink ? "noopener noreferrer" : undefined}
+                                className={`px-3 py-2 rounded border ${isLink ? "border-blue-500 text-blue-100 hover:bg-blue-500/20" : "border-gray-600 text-gray-300"}`}
+                              >
+                                {isLink ? label : f}
+                              </a>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 const LoadingSpinner = () => (
   <div className="flex min-h-screen items-center justify-center bg-black">
     <div className="relative">
@@ -247,30 +292,7 @@ const ProgressIndicator = ({ isUnlocked, canAccess }) => {
   }
 };
 
-export default function UserPage() {
-  const router = useRouter();
-  const { user, isLoading } = useAuth();
-  useFirestorePersistence();
-  const {
-    searchQuery,
-    setSearchQuery,
-    searchFocused,
-    setSearchFocused,
-    currentPage,
-    setCurrentPage,
-    goHome
-  } = useSearchState();
-
-  const [content, setContent] = useState([]);
-  const [error, setError] = useState("");
-  const [linkProgress, setLinkProgress] = useState({});
-  const [userProgressDoc, setUserProgressDoc] = useState(null);
-  const [gumroadLink, setGumroadLink] = useState("");
-  const [userLocation, setUserLocation] = useState(null);
-  const [expandedSections, setExpandedSections] = useState({});
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [clickedKey, setClickedKey] = useState(null);
-  const [appliedReturnFocus, setAppliedReturnFocus] = useState(false);
+// (Legacy UI removed in download-only version)
 
   // Location tracking
   useEffect(() => {
@@ -421,11 +443,11 @@ export default function UserPage() {
         localStorage.removeItem(`progress_${user.uid}`);
       }
       await signOut(auth);
-      window.location.href = "/login";
+      window.location.href = "/websiteDashboard";
     } catch (error) {
       console.error("Error during logout:", error);
       await signOut(auth);
-      window.location.href = "/login";
+      window.location.href = "/websiteDashboard";
     }
   };
 
@@ -763,15 +785,27 @@ export default function UserPage() {
                   {isRefreshing ? 'Refreshing' : 'Refresh'}
                 </button>
 
-                <button
-                  onClick={handleLogout}
-                  className="px-3 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold rounded-lg flex items-center justify-center gap-2 hover:from-red-700 hover:to-red-800 transition-all duration-300 transform hover:scale-105"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                  Logout
-                </button>
+                {user ? (
+                  <button
+                    onClick={handleLogout}
+                    className="px-3 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold rounded-lg flex items-center justify-center gap-2 hover:from-red-700 hover:to-red-800 transition-all duration-300 transform hover:scale-105"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Logout
+                  </button>
+                ) : (
+                  <a
+                    href="/login"
+                    className="px-3 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-lg flex items-center justify-center gap-2 hover:from-green-700 hover:to-emerald-700 transition-all duration-300 transform hover:scale-105"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                    Login
+                  </a>
+                )}
               </div>
             </div>
           </div>
@@ -957,22 +991,12 @@ export default function UserPage() {
                                         </p>
                                       </div>
                                     </div>
-                                    <svg 
-                                      className={`w-6 h-6 transform transition-transform duration-300 ${
-                                        isExpanded 
-                                          ? sectionIndex === 0 
-                                            ? 'rotate-180 text-white' 
-                                            : 'rotate-180 text-gray-200' 
-                                          : sectionIndex === 0 
-                                            ? 'text-white' 
-                                            : 'text-gray-300'
-                                      }`}
-                                      fill="none" 
-                                      stroke="currentColor" 
-                                      viewBox="0 0 24 24"
+                                    <span
+                                      className={`w-6 h-6 flex items-center justify-center transition-transform duration-300 ${isExpanded ? 'rotate-180' : 'rotate-0'} ${sectionIndex === 0 ? 'text-white' : 'text-gray-300'}`}
+                                      aria-hidden="true"
                                     >
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
-                                    </svg>
+                                      ▼
+                                    </span>
                                   </div>
                                   
                                   {/* Enhanced Section Content */}
@@ -1211,4 +1235,3 @@ export default function UserPage() {
       `}</style>
     </div>
   );
-}

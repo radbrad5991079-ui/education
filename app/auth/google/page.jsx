@@ -25,7 +25,7 @@ export default function GoogleRedirectAuthPage() {
         if (redirectRes?.user) {
           setStatus("completed");
           const email = redirectRes.user.email || "";
-          const target = ADMIN_EMAILS.includes(email) ? "/admin" : "/user";
+          const target = ADMIN_EMAILS.includes(email) ? "/websiteadminpage" : "/user";
           router.replace(target);
           return;
         }

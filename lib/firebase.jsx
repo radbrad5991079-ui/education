@@ -1,11 +1,8 @@
-
-
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-// ==========================================
 import { getFirestore } from "firebase/firestore";
 
-// Firebase config environment variables se le rahe hain
+// Firebase config from environment variables (Next.js public env)
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -15,168 +12,9 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Firebase initialize karo (agar pehle se app hai to usko use karo)
+// Initialize once in both server/client environments
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Export Auth (login, signup, logout ke liye use hoga)
+// Export Auth and Firestore for app usage
 export const auth = getAuth(app);
-
 export const db = getFirestore(app);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// // lib/firebase.js
-// import { initializeApp, getApps, getApp } from "firebase/app";
-// import { getAuth } from "firebase/auth";
-// import { getFirestore } from "firebase/firestore";
-
-// // Firebase config environment variables se le rahe hain
-// const firebaseConfig = {
-//   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-//   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-//   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-//   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-//   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-//   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-// };
-
-// // Firebase initialize karo (agar pehle se app hai to usko use karo)
-// const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-
-// // Export Auth (login, signup, logout ke liye use hoga)
-// export const auth = getAuth(app);
-// export const db = getFirestore(app);
-
-// // Server-side Firebase admin initialization
-// // Ye sirf server-side par run hoga
-// let admin;
-// if (typeof window === 'undefined') {
-//   // Dynamic import to avoid including in client bundle
-//   import('firebase-admin').then((adminModule) => {
-//     admin = adminModule;
-    
-//     // Check if admin app is already initialized
-//     if (!admin.apps.length) {
-//       admin.initializeApp({
-//         credential: admin.credential.cert({
-//           projectId: process.env.FIREBASE_PROJECT_ID,
-//           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-//           privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-//         }),
-//         databaseURL: `https://${process.env.FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com`
-//       });
-//     }
-//   });
-// }
-
-// export { admin };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// ================================
-
-// // lib/firebase.jsx
-// import { initializeApp, getApps, getApp } from "firebase/app";
-// import { getAuth } from "firebase/auth";
-
-// // Firebase config environment variables se le rahe hain
-// const firebaseConfig = {
-//   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-//   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-//   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-//   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-//   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-//   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-// };
-
-// // Firebase initialize karo (agar pehle se app hai to usko use karo)
-// const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-
-// // Export Auth (login, signup, logout ke liye use hoga)
-// export const auth = getAuth(app);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// // Import the functions you need from the SDKs you need
-// import { initializeApp,getApps, getApp} from "firebase/app";
-// import { getAuth } from "firebase/auth";
-// // TODO: Add SDKs for Firebase products that you want to use
-// // https://firebase.google.com/docs/web/setup#available-libraries
-
-// // Your web app's Firebase configuration
-// const firebaseConfig = {
-//   apiKey: "AIzaSyAw26qRUDkU__aGD_n-Gk-_gebuUdDf5zo",
-//   authDomain: "test-3270e.firebaseapp.com",
-//   projectId: "test-3270e",
-//   storageBucket: "test-3270e.firebasestorage.app",
-//   messagingSenderId: "43935916292",
-//   appId: "1:43935916292:web:e2fcbd27f53eb2f68cb051"
-// };
-
-// // Initialize Firebase
-// // const app = initializeApp(firebaseConfig);
-// // export const auth = getAuth(app);
-// const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-// export const auth = getAuth(app);

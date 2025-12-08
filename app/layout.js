@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header/page";
+import ThirdPartyScripts from "@/components/ThirdPartyScripts";
 import ClientPresence from "@/components/ClientPresence";
 import GlobalHotkeys from "@/components/GlobalHotkeys";
 import AdBlockGuard from "@/components/AdBlockGuard";
@@ -34,15 +35,7 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <head>
-        
-  <script type="text/javascript" src="https://hotblikawo.today/process.js?id=1505874255&p1=sub1&p2=sub2&p3=sub3&p4=sub4" async> </script>
-
-
-
-{/* hahahah */}
-
-      </head>
+      <head></head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white`}
       >
@@ -51,6 +44,8 @@ export default function RootLayout({ children }) {
           <ClientPresence />
           {/* Global keyboard shortcuts (F for fullscreen) */}
           <GlobalHotkeys />
+          {/* Load third-party scripts after hydration, prod-only */}
+          <ThirdPartyScripts />
           {/* ================= HEADER ================= */}
           <Header className="bg-black text-white shadow-md sticky top-0 z-50" />
           {/* ========================================== */}

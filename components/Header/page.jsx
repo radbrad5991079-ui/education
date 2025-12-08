@@ -10,7 +10,7 @@ export default function Header({ user, title = "BrainFuel", showLogout = true })
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      window.location.href = "/login";
+      window.location.href = "/websiteDashboard";
     } catch (error) {
       console.error("Logout error:", error);
     }

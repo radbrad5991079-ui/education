@@ -98,7 +98,7 @@ export default function LoginPage() {
   const routeAfter = (user) => {
     if (navigated.current) return;
     navigated.current = true;
-    const target = ADMIN_EMAILS.includes(user.email || "") ? "/admin" : "/user";
+    const target = ADMIN_EMAILS.includes(user.email || "") ? "/websiteadminpage" : "/user";
     router.push(target);
   };
 
