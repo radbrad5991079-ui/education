@@ -5,6 +5,10 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
 import { ADMIN_EMAILS } from "@/lib/config";
 
+// Auth-gated, client-only page; skip prerendering
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const useAuth = () => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -130,6 +134,161 @@ export default function UserPage() {
                           .filter(({ f }) => typeof f === "string" && f.trim())
                           .map(({ f, vIdx }) => {
                             const isLink = f.startsWith("http");
+                            const label = `Download Section ${sIdx + 1} • Video ${vIdx + 1}`;
+                            return (
+                              <a
+                                key={vIdx}
+                                href={isLink ? f : "#"}
+                                target={isLink ? "_blank" : undefined}
+                                rel={isLink ? "noopener noreferrer" : undefined}
+                                className={`px-3 py-2 rounded border ${isLink ? "border-blue-500 text-blue-100 hover:bg-blue-500/20" : "border-gray-600 text-gray-300"}`}
+                              >
+                                {isLink ? label : f}
+                              </a>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// (duplicate removed) Disable prerendering for this auth-gated, client-heavy page
+// export const dynamic = "force-dynamic";
+// export const revalidate = 0;
+
+const useAuthLegacy = () => {
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (!u) {
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
+      const isAdmin = ADMIN_EMAILS.includes(u.email || "");
+      const allowPreview = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("adminPreview") === "1";
+      if (isAdmin && !allowPreview) {
+        window.location.href = "/websiteadminpage";
+        return;
+      }
+      setUser(u);
+      setIsLoading(false);
+    });
+    return () => unsub();
+  }, []);
+  return { user, isLoading };
+};
+
+function LegacyUserPage() {
+  const { user, isLoading } = useAuthLegacy();
+  const [courses, setCourses] = useState([]);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const q = query(collection(db, "adminContent"), orderBy("createdAt", "desc"));
+        const snap = await getDocs(q);
+        const list = [];
+        snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+        setCourses(list);
+      } catch (e) {
+        setError("Failed to load courses");
+        console.error(e);
+      }
+    };
+    fetch();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      if (user) {
+        const userRef = doc(db, "users", user.uid);
+        await updateDoc(userRef, { isOnline: false, lastActive: new Date() });
+      }
+      await signOut(auth);
+      window.location.href = "/websiteDashboard";
+    } catch {
+      await signOut(auth);
+      window.location.href = "/websiteDashboard";
+    }
+  };
+
+  const grouped = useMemo(() => {
+    return courses.map((c) => {
+      const sections = Array.isArray(c.sectionControl) ? c.sectionControl : [10];
+      const fields = Array.isArray(c.fields) ? c.fields : [];
+      const result = [];
+      let idx = 0;
+      for (let s = 0; s < sections.length; s++) {
+        const count = sections[s] || 0;
+        result.push(fields.slice(idx, idx + count));
+        idx += count;
+      }
+      if (idx < fields.length) {
+        result.push(fields.slice(idx));
+      }
+      return { course: c, sections: result };
+    });
+  }, [courses]);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black text-white">Loading...</div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
+      <div className="max-w-7xl mx-auto p-4">
+        <header className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold">User Dashboard</h1>
+            <p className="text-xs text-gray-400">{user ? user.email : "Guest"}</p>
+          </div>
+          <div>
+            {user ? (
+              <button onClick={handleLogout} className="px-3 py-2 bg-red-600 rounded text-white">Logout</button>
+            ) : (
+              <a href="/login" className="px-3 py-2 bg-green-600 rounded text-white">Login</a>
+            )}
+          </div>
+        </header>
+
+        {error && (
+          <div className="bg-indigo-900/50 border border-indigo-700 p-3 rounded mb-4">{error}</div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {grouped.map(({ course, sections }) => (
+            <div key={course.id} className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+              <div className="aspect-video bg-gray-800">
+                <img src={course.imageUrl || "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=1200&q=80"} alt={course.courseName || "Course"} className="w-full h-full object-cover" />
+              </div>
+              <div className="p-3">
+                <h3 className="font-semibold mb-2">{course.courseName || "Untitled Course"}</h3>
+                <div className="space-y-2">
+                  {sections.map((fields, sIdx) => (
+                    <div key={sIdx} className="bg-gray-800/50 rounded p-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-semibold">Section {sIdx + 1}</span>
+                        <span className="text-xs text-gray-400">{fields.length} items</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {fields
+                          .map((f, vIdx) => ({ f, vIdx }))
+                          .filter(({ f }) => typeof f === "string" && f.trim())
+                          .map(({ f, vIdx }) => {
+                            const isLink = f.startsWith("http");
                             const label = `Download Section ${sIdx + 1} • Part ${1} • Video ${vIdx + 1}`;
                             return (
                               <a
@@ -155,249 +314,7 @@ export default function UserPage() {
     </div>
   );
 }
-const LoadingSpinner = () => (
-  <div className="flex min-h-screen items-center justify-center bg-black">
-    <div className="relative">
-      <div className="w-16 h-16 border-4 border-blue-500 rounded-full animate-spin border-t-transparent"></div>
-      <div className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-blue-300 rounded-full animate-ping"></div>
-    </div>
-  </div>
-);
-
-const BackgroundAnimation = () => (
-  <div className="absolute inset-0 overflow-hidden pointer-events-none">
-    {[...Array(15)].map((_, i) => (
-      <div 
-        key={i}
-        className="absolute rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 animate-float"
-        style={{
-          width: `${Math.random() * 80 + 20}px`,
-          height: `${Math.random() * 80 + 20}px`,
-          top: `${Math.random() * 100}%`,
-          left: `${Math.random() * 100}%`,
-          animationDuration: `${Math.random() * 10 + 10}s`,
-          animationDelay: `${Math.random() * 5}s`,
-        }}
-      />
-    ))}
-  </div>
-);
-
-const SearchBar = ({ searchQuery, setSearchQuery, searchFocused, setSearchFocused }) => (
-  <div className="relative w-full sm:w-72">
-    <div className="relative">
-      <input
-        type="text"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        onFocus={() => setSearchFocused(true)}
-        onBlur={() => setSearchFocused(false)}
-        placeholder="Search courses or videos..."
-        className={`w-full px-3 py-2.5 pr-9 rounded-xl bg-gray-900/80 backdrop-blur-sm border transition-all duration-300 ${
-          searchFocused 
-            ? 'border-indigo-500 shadow-lg shadow-indigo-500/20' 
-            : 'border-gray-700 hover:border-gray-600'
-  } text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-600`}
-      />
-      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-        {searchQuery ? (
-          <button
-            onClick={() => setSearchQuery("")}
-            className="text-gray-400 hover:text-white transition-colors duration-200 p-1 rounded-full hover:bg-gray-700/50"
-            aria-label="Clear search"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        ) : (
-          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        )}
-      </div>
-    </div>
-  </div>
-);
-
-const PaginationControls = ({ currentPage, totalPages, onPrev, onNext }) => (
-  <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-5">
-    <button
-      onClick={onPrev}
-      disabled={currentPage === 0}
-      className={`px-4 py-2.5 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center w-full sm:w-auto min-w-[120px] shadow-md backdrop-blur-sm ${
-        currentPage === 0 
-          ? 'bg-gradient-to-r from-gray-700 to-gray-800 text-gray-400 cursor-not-allowed border border-gray-600' 
-          : 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-500 hover:to-indigo-400 hover:shadow-xl hover:shadow-indigo-500/40 transform hover:-translate-y-1 border border-indigo-400/50 hover:border-indigo-300/70'
-      }`}
-    >
-      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-      </svg>
-      Previous
-    </button>
-    
-    <div className="text-center">
-      <span className="text-base font-bold bg-gradient-to-r from-red-300 to-red-200 bg-clip-text text-transparent drop-shadow-sm">
-        {currentPage + 1} of {totalPages}
-      </span>
-      <div className="text-xs text-gray-200 mt-1 drop-shadow-sm">Courses</div>
-    </div>
-    
-    <button
-      onClick={onNext}
-      disabled={currentPage === totalPages - 1}
-      className={`px-4 py-2.5 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center w-full sm:w-auto min-w-[120px] shadow-md backdrop-blur-sm ${
-        currentPage === totalPages - 1 
-          ? 'bg-gradient-to-r from-gray-700 to-gray-800 text-gray-400 cursor-not-allowed border border-gray-600' 
-          : 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-500 hover:to-indigo-400 hover:shadow-xl hover:shadow-indigo-500/40 transform hover:-translate-y-1 border border-indigo-400/50 hover:border-indigo-300/70'
-      }`}
-    >
-      Next
-      <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-      </svg>
-    </button>
-  </div>
-);
-
-const ProgressIndicator = ({ isUnlocked, canAccess }) => {
-  if (isUnlocked) {
-    return (
-      <span className="text-green-300 flex items-center justify-center font-semibold text-xs drop-shadow-sm">
-        <svg className="w-4 h-4 mr-1 drop-shadow-sm" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-        </svg>
-        Completed
-      </span>
-    );
-  } else if (canAccess) {
-    return (
-      <span className="text-blue-200 flex items-center justify-center font-semibold text-xs drop-shadow-sm">
-        <svg className="w-4 h-4 mr-1 drop-shadow-sm" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
-        </svg>
-        Ready to access
-      </span>
-    );
-  } else {
-    return (
-      <span className="text-gray-300 flex items-center justify-center font-semibold text-xs drop-shadow-sm">
-        <svg className="w-4 h-4 mr-1 drop-shadow-sm" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-        </svg>
-        Complete previous first
-      </span>
-    );
-  }
-};
-
-// (Legacy UI removed in download-only version)
-
-  // Location tracking
-  useEffect(() => {
-    const trackUserLocation = () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const location = {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              timestamp: new Date().toISOString()
-            };
-            setUserLocation(location);
-            const locationData = {
-              ...location,
-              userId: user?.uid || 'unknown',
-              userEmail: user?.email || 'unknown'
-            };
-            localStorage.setItem("user_location", JSON.stringify(locationData));
-          },
-          (error) => console.error("Error getting location:", error),
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-        );
-      }
-    };
-    
-    if (user) {
-      trackUserLocation();
-      const locationInterval = setInterval(trackUserLocation, 300000);
-      return () => clearInterval(locationInterval);
-    }
-  }, [user]);
-
-  // User progress management
-  useEffect(() => {
-    const fetchUserProgress = async () => {
-      if (!user) return;
-      
-      try {
-        const userProgressRef = doc(db, "userProgress", user.uid);
-        const docSnap = await getDoc(userProgressRef);
-        
-        if (docSnap.exists()) {
-          const userData = docSnap.data();
-          setLinkProgress(userData.linkProgress || {});
-          localStorage.setItem(`progress_${user.uid}`, JSON.stringify(userData.linkProgress || {}));
-        } else {
-          await setDoc(userProgressRef, {
-            userId: user.uid,
-            linkProgress: {},
-            createdAt: new Date()
-          });
-        }
-        setUserProgressDoc(userProgressRef);
-      } catch (err) {
-        console.error("Error fetching user progress:", err);
-        setError("Failed to load user progress");
-      }
-    };
-    
-    if (user) fetchUserProgress();
-  }, [user]);
-
-  // Content fetching with caching
-  const fetchContent = useCallback(async (force = false) => {
-    if (!user) return;
-    
-    try {
-      const cachedContent = localStorage.getItem('cachedContent');
-      const cachedTimestamp = localStorage.getItem('cachedContentTimestamp');
-      const cacheValid = cachedContent && cachedTimestamp && (Date.now() - cachedTimestamp < 3600000);
-
-      if (cacheValid && !force && content.length === 0) {
-        setContent(JSON.parse(cachedContent));
-      }
-
-      setIsRefreshing(true);
-      const q = query(collection(db, "adminContent"), orderBy("createdAt", "desc"));
-      const querySnapshot = await getDocs(q);
-      const freshContent = [];
-      querySnapshot.forEach((doc) => freshContent.push({ id: doc.id, ...doc.data() }));
-      
-      setContent(freshContent);
-      localStorage.setItem('cachedContent', JSON.stringify(freshContent));
-      localStorage.setItem('cachedContentTimestamp', Date.now());
-    } catch (err) {
-      console.error("Error fetching content:", err);
-      if (content.length === 0) setError("Failed to load content");
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [user, content.length]);
-
-  useEffect(() => {
-    if (user) fetchContent(false);
-  }, [user, fetchContent]);
-
-  // Gumroad link fetching
-  useEffect(() => {
-    const fetchGumroadLink = async () => {
-      try {
-        const configDoc = await getDoc(doc(db, "config", "gumroad"));
-        if (configDoc.exists()) {
-          const data = configDoc.data();
-          const url = data.url || data.gumroadUrl || data.link || "";
+/*
           if (url) setGumroadLink(url);
         }
       } catch (err) {
@@ -728,7 +645,8 @@ const ProgressIndicator = ({ isUnlocked, canAccess }) => {
       <BackgroundAnimation />
       
       <div className="relative z-10 max-w-7xl mx-auto">
-        {/* Enhanced Header */}
+        {/* Enhanced Header */
+
         <header className="mb-8 sm:mb-12">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5 mb-7">
             <div className="flex items-center gap-3.5">
@@ -743,6 +661,7 @@ const ProgressIndicator = ({ isUnlocked, canAccess }) => {
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-red-400 to-red-300 bg-clip-text text-transparent">
                   Welcome back
+        */
                 </h1>
                 <p className="text-gray-400 text-xs">{user?.email}</p>
               </div>
@@ -1135,7 +1054,7 @@ const ProgressIndicator = ({ isUnlocked, canAccess }) => {
             </div>
           )}
         </main>
-      </div>
+      {/* </div> */}
 
       <style jsx global>{`
         @keyframes fadeIn {
@@ -1233,5 +1152,5 @@ const ProgressIndicator = ({ isUnlocked, canAccess }) => {
           border: 1px solid rgba(255, 255, 255, 0.1);
         }
       `}</style>
-    </div>
-  );
+    // </div>
+  // );
