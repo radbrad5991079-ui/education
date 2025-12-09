@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ShieldAlert, RefreshCw, Wrench, Ban } from "lucide-react";
 
 export default function AdBlockGuard({ children }) {
   const [detected, setDetected] = useState(false);
@@ -8,147 +10,113 @@ export default function AdBlockGuard({ children }) {
   const [isAdmin, setIsAdmin] = useState(false);
 
   const message = useMemo(() => ({
-    title: "AdBlock Detected 🚫",
+    title: "AdBlock Detected",
     lines: [
       "We noticed you're using an AdBlocker. Ads help us keep this website free and support our creators.",
-      "Please disable your AdBlocker and refresh the page to continue enjoying our content. 💙",
-      "Thank you for supporting us!",
+      "Please disable your AdBlocker and refresh the page to continue enjoying our content.",
     ],
   }), []);
 
-  // Admin bypass methods - MOVED OUTSIDE useEffect
+  // Admin bypass methods
   const checkAdminStatus = () => {
-    console.log("Checking admin status...");
+    if (typeof window === "undefined") return false;
     
-    // Method 1: URL parameter (e.g., ?admin=true)
     const urlParams = new URLSearchParams(window.location.search);
+    // Method 1: URL parameter (?admin=true)
     if (urlParams.get('admin') === 'true') {
-      console.log("Admin mode activated via URL parameter");
       localStorage.setItem('adblock_admin', 'true');
       return true;
     }
 
     // Method 2: Local storage flag
     if (localStorage.getItem('adblock_admin') === 'true') {
-      console.log("Admin mode activated via localStorage");
       return true;
     }
 
-    // Method 3: Simple password in URL
-    if (urlParams.get('admin_key') === 'dev123') { // Simple password
-      console.log("Admin mode activated via password");
+    // Method 3: Password parameter (?admin_key=dev123)
+    if (urlParams.get('admin_key') === 'dev123') {
       localStorage.setItem('adblock_admin', 'true');
       return true;
     }
 
-    console.log("Admin mode not active");
     return false;
-  };
-
-  // Admin control functions
-  const enableAdminMode = () => {
-    localStorage.setItem('adblock_admin', 'true');
-    setIsAdmin(true);
-    setDetected(false);
-    setChecked(true);
-    // Remove URL parameters
-    const url = new URL(window.location);
-    url.searchParams.delete('admin');
-    url.searchParams.delete('admin_key');
-    window.history.replaceState({}, '', url);
   };
 
   const disableAdminMode = () => {
     localStorage.removeItem('adblock_admin');
     setIsAdmin(false);
     setChecked(false);
-    setTimeout(() => window.location.reload(), 1000);
+    window.location.reload();
   };
 
-  // Add admin panel component
+  // Admin Panel Component
   const AdminPanel = () => (
-    <div className="fixed top-4 right-4 z-[100000] bg-green-600 text-white p-3 rounded-lg shadow-lg">
-      <div className="text-sm font-bold mb-2">🔧 Admin Mode Active</div>
-      <div className="flex gap-2">
-        <button 
-          onClick={disableAdminMode}
-          className="px-2 py-1 text-xs bg-red-500 hover:bg-red-600 rounded transition"
-        >
-          Disable
-        </button>
-        <button 
-          onClick={() => {
-            setDetected(true);
-            setChecked(true);
-          }}
-          className="px-2 py-1 text-xs bg-blue-500 hover:bg-blue-600 rounded transition"
-        >
-          Test Block
-        </button>
+    <motion.div 
+      initial={{ y: -50, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      className="fixed top-4 right-4 z-[100000]"
+    >
+      <div className="bg-emerald-900/80 backdrop-blur-xl border border-emerald-500/30 text-emerald-100 p-4 rounded-2xl shadow-2xl">
+        <div className="flex items-center gap-2 text-sm font-bold mb-3 border-b border-emerald-500/20 pb-2">
+          <Wrench className="w-4 h-4" />
+          <span>Admin Mode Active</span>
+        </div>
+        <div className="flex gap-2">
+          <button 
+            onClick={disableAdminMode}
+            className="flex-1 px-3 py-1.5 text-xs font-semibold bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-300 rounded-lg transition-all"
+          >
+            Disable
+          </button>
+          <button 
+            onClick={() => {
+              setDetected(true);
+              setChecked(true);
+            }}
+            className="flex-1 px-3 py-1.5 text-xs font-semibold bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-300 rounded-lg transition-all"
+          >
+            Test Block
+          </button>
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 
   useEffect(() => {
-    // Check admin status FIRST before any detection
     const adminStatus = checkAdminStatus();
-    console.log("Admin status:", adminStatus);
     setIsAdmin(adminStatus);
     
     if (adminStatus) {
-      console.log("Skipping adblock detection - admin mode active");
       setChecked(true);
       setDetected(false);
-      return; // Skip all adblock detection for admins
+      return; 
     }
 
-    console.log("Starting adblock detection...");
     let cancelled = false;
-
     const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
 
+    // 1. DOM Baiting (Fake Ads)
     const checkDomBait = async () => {
       try {
         return await new Promise((resolve) => {
           const wrap = document.createElement("div");
           const bait = document.createElement("div");
-          const ins = document.createElement("ins");
-          bait.className = "ads ad ad-banner advert advertisement sponsor pub_300x250 ad-container ad-slot adsbox doubleclick google-ads text-ad ad-unit ad-space ad-placeholder";
-          bait.id = "ad-banner ad-container google-ads frame ad-frame";
-          ins.className = "adsbygoogle ad adsbox sponsor ad-unit";
-          Object.assign(wrap.style, { position: "absolute", left: "-9999px", top: "-9999px" });
-          Object.assign(bait.style, { width: "300px", height: "250px" });
-          Object.assign(ins.style, { width: "1px", height: "1px", display: "block" });
+          bait.className = "ads ad ad-banner advert advertisement sponsor pub_300x250 ad-container ad-slot adsbox doubleclick google-ads text-ad";
+          bait.style.width = "300px";
+          bait.style.height = "250px";
+          
+          wrap.style.position = "absolute";
+          wrap.style.left = "-9999px";
+          wrap.style.top = "-9999px";
+          
           wrap.appendChild(bait);
-          wrap.appendChild(ins);
           document.body.appendChild(wrap);
 
-          let removed = false;
-          const mo = new MutationObserver(() => {
-            if (!wrap.isConnected || !bait.isConnected || !ins.isConnected) {
-              removed = true;
-            }
-          });
-          mo.observe(wrap, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
-
           requestAnimationFrame(() => {
-            const cs1 = window.getComputedStyle(bait);
-            const cs2 = window.getComputedStyle(ins);
-            const hidden =
-              removed ||
-              cs1.display === "none" ||
-              cs1.visibility === "hidden" ||
-              cs1.opacity === "0" ||
-              cs1.height === "0px" ||
-              bait.offsetHeight === 0 ||
-              cs2.display === "none" ||
-              cs2.visibility === "hidden" ||
-              cs2.opacity === "0" ||
-              cs2.height === "0px" ||
-              ins.offsetHeight === 0;
+            const cs = window.getComputedStyle(bait);
+            const hidden = cs.display === "none" || cs.visibility === "hidden" || bait.offsetHeight === 0;
             wrap.remove();
-            mo.disconnect();
-            resolve(!!hidden);
+            resolve(hidden);
           });
         });
       } catch {
@@ -156,13 +124,14 @@ export default function AdBlockGuard({ children }) {
       }
     };
 
+    // 2. Network Probes (Loading generic ad scripts)
     const loadScriptProbe = (src, ms = 3000) => {
       return new Promise((resolve) => {
         const s = document.createElement("script");
         let settled = false;
         const done = (val) => { if (!settled) { settled = true; resolve(val); } s.remove(); };
         s.async = true;
-        s.src = src + (src.includes("?") ? "&" : "?") + "_ab=" + Date.now() + "&rnd=" + Math.random();
+        s.src = src;
         s.onload = () => done(false);
         s.onerror = () => done(true);
         document.head.appendChild(s);
@@ -170,144 +139,38 @@ export default function AdBlockGuard({ children }) {
       });
     };
 
-    const fetchProbe = async (url, ms = 2500) => {
-      try {
-        const controller = new AbortController();
-        const to = setTimeout(() => controller.abort(), ms);
-        const resp = await fetch(url + (url.includes("?") ? "&" : "?") + "_ab=" + Date.now() + "&rnd=" + Math.random(), { 
-          signal: controller.signal, 
-          credentials: "omit",
-          method: 'GET'
-        });
-        clearTimeout(to);
-        return false;
-      } catch (error) {
-        return error.name === 'TypeError' || error.name === 'NetworkError';
-      }
-    };
-
-    const imageProbe = (src, ms = 3000) => new Promise((resolve) => {
-      let settled = false;
-      const done = (val) => { if (!settled) { settled = true; resolve(val); } };
-      const img = new Image();
-      img.onload = () => done(false);
-      img.onerror = () => done(true);
-      img.src = src + (src.includes("?") ? "&" : "?") + "_ab=" + Date.now() + "&rnd=" + Math.random();
-      setTimeout(() => done(false), ms);
-    });
-
-    const detectDNRBlocking = async () => {
-      try {
-        const dnrTests = await Promise.all([
-          fetch('https://googleads.g.doubleclick.net/pagead/id?rnd=' + Date.now(), {
-            mode: 'no-cors',
-            credentials: 'omit'
-          }).then(() => false).catch(() => true),
-          
-          fetch('https://www.googletagservices.com/tag/js/gpt.js?rnd=' + Date.now(), {
-            mode: 'no-cors'
-          }).then(() => false).catch(() => true),
-          
-          fetch('https://www.google-analytics.com/analytics.js?rnd=' + Date.now(), {
-            mode: 'no-cors'
-          }).then(() => false).catch(() => true),
-          
-          fetch('https://connect.facebook.net/en_US/fbevents.js?rnd=' + Date.now(), {
-            mode: 'no-cors'
-          }).then(() => false).catch(() => true)
-        ]);
-
-        return dnrTests.filter(Boolean).length >= 2;
-      } catch {
-        return false;
-      }
-    };
-
-    const testUblockLiteSpecific = async () => {
-      const tests = await Promise.all([
-        loadScriptProbe("https://www.googletagmanager.com/gtag/js"),
-        loadScriptProbe("https://connect.facebook.net/en_US/fbevents.js"),
-        loadScriptProbe("https://www.google-analytics.com/analytics.js"),
-        fetchProbe("https://stats.g.doubleclick.net/r/collect"),
-        imageProbe("https://www.facebook.com/tr/")
-      ]);
-
-      return tests.filter(Boolean).length >= 3;
-    };
-
     const detect = async () => {
       if (cancelled) return false;
 
       try {
-        const [
-          cosmeticFiltering,
-          dnrBlocking,
-          ublockLiteSpecific,
-          googleAdsBlocked,
-          gptBlocked,
-          analyticsBlocked,
-          facebookTrackerBlocked
-        ] = await Promise.all([
+        // Run checks in parallel
+        const [domBlocked, scriptBlocked] = await Promise.all([
           checkDomBait(),
-          detectDNRBlocking(),
-          testUblockLiteSpecific(),
-          loadScriptProbe("https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"),
-          loadScriptProbe("https://securepubads.g.doubleclick.net/tag/js/gpt.js"),
-          loadScriptProbe("https://www.google-analytics.com/analytics.js"),
-          loadScriptProbe("https://connect.facebook.net/en_US/fbevents.js")
+          loadScriptProbe("https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js")
         ]);
 
-        console.log('Adblock detection results:', {
-          cosmeticFiltering,
-          dnrBlocking, 
-          ublockLiteSpecific,
-          googleAdsBlocked,
-          gptBlocked,
-          analyticsBlocked,
-          facebookTrackerBlocked
-        });
-
         let shouldBlock = false;
-        let detectedBlocker = "";
+        let detectedName = "";
 
-        if (cosmeticFiltering || googleAdsBlocked || gptBlocked) {
-          shouldBlock = true;
-          if (cosmeticFiltering) {
-            detectedBlocker = "Traditional AdBlocker (uBlock Origin, AdGuard)";
-          } else {
-            detectedBlocker = "AdBlocker (AdBlock, AdBlock Plus)";
-          }
+        if (domBlocked) {
+            shouldBlock = true;
+            detectedName = "Cosmetic Filter";
+        } else if (scriptBlocked) {
+            shouldBlock = true;
+            detectedName = "Script Blocker";
         }
 
-        if (dnrBlocking || ublockLiteSpecific) {
-          shouldBlock = true;
-          detectedBlocker = "DNR-based Blocker (uBlock Origin Lite, Brave Shields)";
-        }
-
-        if ((analyticsBlocked && facebookTrackerBlocked) || (ublockLiteSpecific && !shouldBlock)) {
-          shouldBlock = true;
-          detectedBlocker = "Privacy/Tracker Blocker (uBlock Origin Lite, Privacy Badger)";
-        }
-
-        const blockedCount = [googleAdsBlocked, gptBlocked, analyticsBlocked, facebookTrackerBlocked].filter(Boolean).length;
-        if (blockedCount >= 2 && !shouldBlock) {
-          shouldBlock = true;
-          detectedBlocker = "Ad/Tracker Blocker";
-        }
-
-        if (!cancelled) {
-          setDetected(shouldBlock);
-          setBlockerName(detectedBlocker);
+        if (!cancelled && shouldBlock) {
+          setDetected(true);
+          setBlockerName(detectedName);
+          setChecked(true);
+        } else if (!cancelled) {
           setChecked(true);
         }
 
         return shouldBlock;
       } catch (error) {
-        console.error('Adblock detection error:', error);
-        if (!cancelled) {
-          setDetected(false);
-          setChecked(true);
-        }
+        if (!cancelled) setChecked(true);
         return false;
       }
     };
@@ -315,33 +178,21 @@ export default function AdBlockGuard({ children }) {
     const initialDetection = async () => {
       await timeout(1000);
       if (cancelled) return;
-      
       let wasDetected = await detect();
       
+      // Double check if false negative
       if (!wasDetected) {
         await timeout(1500);
-        wasDetected = await detect();
-      }
-
-      if (wasDetected && !cancelled) {
-        const intervalId = setInterval(() => {
-          if (cancelled) {
-            clearInterval(intervalId);
-            return;
-          }
-          detect();
-        }, 4000);
+        await detect();
       }
     };
 
     initialDetection();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  // If admin, show content immediately - SIMPLIFIED
+  // Admin View
   if (isAdmin) {
     return (
       <div className="relative w-full min-h-screen">
@@ -351,76 +202,879 @@ export default function AdBlockGuard({ children }) {
     );
   }
 
-  // Show loading state while checking
+  // Initial Loading
   if (!checked) {
-    return (
-      <div className="relative w-full min-h-screen">
-        {children}
-      </div>
-    );
+    return <div className="relative w-full min-h-screen">{children}</div>;
   }
 
   return (
     <div className="relative w-full min-h-screen">
+      
+      {/* Show content only if NO adblock detected */}
       <div style={{ display: detected ? "none" : "block" }}>
         {children}
-        
-        {/* Add admin enable button in the corner for easy access */}
-        {/* {!detected && (
-          <div className="fixed bottom-4 right-4 z-50">
-            <button 
-              onClick={enableAdminMode}
-              className="px-3 py-2 text-xs bg-gray-800 text-white rounded opacity-50 hover:opacity-100 transition"
-              title="Enable Admin Mode"
-            >
-              🔧 Admin
-            </button>
-          </div>
-        )} */}
       </div>
 
-      {detected && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 text-white p-6">
-          <div className="max-w-lg w-full text-center">
-            <h2 className="text-3xl font-bold mb-4">{message.title}</h2>
-            <div className="text-sm sm:text-base text-gray-200 space-y-3 leading-relaxed">
-              {message.lines.map((l, i) => (
-                <p key={i}>{l}</p>
-              ))}
-              {blockerName && (
-                <p className="mt-4 text-base font-semibold text-red-400">Detected: {blockerName}</p>
-              )}
-              
-              {/* Admin access section */}
-              {/* <div className="mt-6 p-4 bg-gray-800 rounded-lg">
-                <p className="text-gray-300 mb-3">Developer/Admin Access:</p>
-                <div className="flex flex-col gap-2">
-                  <button 
-                    onClick={enableAdminMode}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded transition"
-                  >
-                    Enable Admin Mode
-                  </button>
-                  <p className="text-xs text-gray-400">
-                    Or add <code className="bg-gray-700 px-1 rounded">?admin=true</code> to URL
-                  </p>
+      {/* Warning Modal */}
+      <AnimatePresence>
+        {detected && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 backdrop-blur-md p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="relative max-w-md w-full bg-gray-900 border border-red-500/30 rounded-3xl p-8 text-center overflow-hidden shadow-2xl"
+            >
+              {/* Top Line */}
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-orange-500 to-red-500" />
+
+              <div className="flex justify-center mb-6">
+                <div className="p-4 bg-red-500/10 rounded-full border border-red-500/20">
+                  <ShieldAlert className="w-12 h-12 text-red-500" />
                 </div>
-              </div> */}
-            </div>
-            <div className="mt-6 flex items-center justify-center gap-3">
-              <button
+              </div>
+
+              <h2 className="text-3xl font-bold text-white mb-2">{message.title}</h2>
+              
+              {blockerName && (
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-900/30 border border-red-500/20 text-red-300 text-xs font-medium mb-6">
+                  <Ban className="w-3 h-3" />
+                  {blockerName}
+                </div>
+              )}
+
+              <div className="space-y-4 text-gray-300 mb-8">
+                {message.lines.map((l, i) => <p key={i}>{l}</p>)}
+              </div>
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => window.location.reload()}
-                className="px-5 py-2 rounded bg-white text-black font-medium hover:bg-gray-200 transition"
+                className="w-full py-4 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all"
               >
+                <RefreshCw className="w-5 h-5" />
                 Refresh Page
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              </motion.button>
+              
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+
+
+
+
+
+// "use client";
+// import { useEffect, useMemo, useState } from "react";
+// import { motion, AnimatePresence } from "framer-motion";
+// import { ShieldAlert, RefreshCw, Wrench, Ban, CheckCircle2, XCircle } from "lucide-react";
+
+// export default function AdBlockGuard({ children }) {
+//   const [detected, setDetected] = useState(false);
+//   const [checked, setChecked] = useState(false);
+//   const [blockerName, setBlockerName] = useState("");
+//   const [isAdmin, setIsAdmin] = useState(false);
+
+//   const message = useMemo(() => ({
+//     title: "AdBlock Detected",
+//     lines: [
+//       "We noticed you're using an AdBlocker. Ads help us keep this website free and support our creators.",
+//       "Please disable your AdBlocker and  VPN Must ON then refresh the page to continue enjoying our content.",
+//     ],
+//   }), []);
+
+//   // Admin bypass methods
+//   const checkAdminStatus = () => {
+//     if (typeof window === "undefined") return false;
+    
+//     // Method 1: URL parameter
+//     const urlParams = new URLSearchParams(window.location.search);
+//     if (urlParams.get('admin') === 'true') {
+//       localStorage.setItem('adblock_admin', 'true');
+//       return true;
+//     }
+
+//     // Method 2: Local storage flag
+//     if (localStorage.getItem('adblock_admin') === 'true') {
+//       return true;
+//     }
+
+//     // Method 3: Simple password in URL
+//     if (urlParams.get('admin_key') === 'dev123') {
+//       localStorage.setItem('adblock_admin', 'true');
+//       return true;
+//     }
+
+//     return false;
+//   };
+
+//   // Admin control functions
+//   const disableAdminMode = () => {
+//     localStorage.removeItem('adblock_admin');
+//     setIsAdmin(false);
+//     setChecked(false);
+//     setTimeout(() => window.location.reload(), 1000);
+//   };
+
+//   // Styled Admin Panel Component
+//   const AdminPanel = () => (
+//     <motion.div 
+//       initial={{ y: -50, opacity: 0 }}
+//       animate={{ y: 0, opacity: 1 }}
+//       className="fixed top-4 right-4 z-[100000]"
+//     >
+//       <div className="bg-emerald-900/80 backdrop-blur-xl border border-emerald-500/30 text-emerald-100 p-4 rounded-2xl shadow-2xl shadow-emerald-900/20">
+//         <div className="flex items-center gap-2 text-sm font-bold mb-3 border-b border-emerald-500/20 pb-2">
+//           <Wrench className="w-4 h-4" />
+//           <span>Admin Mode Active</span>
+//         </div>
+//         <div className="flex gap-2">
+//           <button 
+//             onClick={disableAdminMode}
+//             className="flex-1 px-3 py-1.5 text-xs font-semibold bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-300 rounded-lg transition-all"
+//           >
+//             Disable
+//           </button>
+//           <button 
+//             onClick={() => {
+//               setDetected(true);
+//               setChecked(true);
+//             }}
+//             className="flex-1 px-3 py-1.5 text-xs font-semibold bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-300 rounded-lg transition-all"
+//           >
+//             Test Block
+//           </button>
+//         </div>
+//       </div>
+//     </motion.div>
+//   );
+
+//   useEffect(() => {
+//     const adminStatus = checkAdminStatus();
+//     setIsAdmin(adminStatus);
+    
+//     if (adminStatus) {
+//       setChecked(true);
+//       setDetected(false);
+//       return; 
+//     }
+
+//     let cancelled = false;
+//     const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
+
+//     const checkDomBait = async () => {
+//       try {
+//         return await new Promise((resolve) => {
+//           const wrap = document.createElement("div");
+//           const bait = document.createElement("div");
+//           const ins = document.createElement("ins");
+//           bait.className = "ads ad ad-banner advert advertisement sponsor pub_300x250 ad-container ad-slot adsbox doubleclick google-ads text-ad ad-unit ad-space ad-placeholder";
+//           bait.id = "ad-banner ad-container google-ads frame ad-frame";
+//           ins.className = "adsbygoogle ad adsbox sponsor ad-unit";
+//           Object.assign(wrap.style, { position: "absolute", left: "-9999px", top: "-9999px" });
+//           Object.assign(bait.style, { width: "300px", height: "250px" });
+//           Object.assign(ins.style, { width: "1px", height: "1px", display: "block" });
+//           wrap.appendChild(bait);
+//           wrap.appendChild(ins);
+//           document.body.appendChild(wrap);
+
+//           let removed = false;
+//           const mo = new MutationObserver(() => {
+//             if (!wrap.isConnected || !bait.isConnected || !ins.isConnected) {
+//               removed = true;
+//             }
+//           });
+//           mo.observe(wrap, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
+
+//           requestAnimationFrame(() => {
+//             const cs1 = window.getComputedStyle(bait);
+//             const cs2 = window.getComputedStyle(ins);
+//             const hidden =
+//               removed ||
+//               cs1.display === "none" ||
+//               cs1.visibility === "hidden" ||
+//               cs1.opacity === "0" ||
+//               cs1.height === "0px" ||
+//               bait.offsetHeight === 0 ||
+//               cs2.display === "none" ||
+//               cs2.visibility === "hidden" ||
+//               cs2.opacity === "0" ||
+//               cs2.height === "0px" ||
+//               ins.offsetHeight === 0;
+//             wrap.remove();
+//             mo.disconnect();
+//             resolve(!!hidden);
+//           });
+//         });
+//       } catch {
+//         return false;
+//       }
+//     };
+
+//     const loadScriptProbe = (src, ms = 3000) => {
+//       return new Promise((resolve) => {
+//         const s = document.createElement("script");
+//         let settled = false;
+//         const done = (val) => { if (!settled) { settled = true; resolve(val); } s.remove(); };
+//         s.async = true;
+//         s.src = src + (src.includes("?") ? "&" : "?") + "_ab=" + Date.now() + "&rnd=" + Math.random();
+//         s.onload = () => done(false);
+//         s.onerror = () => done(true);
+//         document.head.appendChild(s);
+//         setTimeout(() => done(false), ms);
+//       });
+//     };
+
+//     const fetchProbe = async (url, ms = 2500) => {
+//       try {
+//         const controller = new AbortController();
+//         const to = setTimeout(() => controller.abort(), ms);
+//         const resp = await fetch(url + (url.includes("?") ? "&" : "?") + "_ab=" + Date.now() + "&rnd=" + Math.random(), { 
+//           signal: controller.signal, 
+//           credentials: "omit",
+//           method: 'GET'
+//         });
+//         clearTimeout(to);
+//         return false;
+//       } catch (error) {
+//         return error.name === 'TypeError' || error.name === 'NetworkError';
+//       }
+//     };
+
+//     const imageProbe = (src, ms = 3000) => new Promise((resolve) => {
+//       let settled = false;
+//       const done = (val) => { if (!settled) { settled = true; resolve(val); } };
+//       const img = new Image();
+//       img.onload = () => done(false);
+//       img.onerror = () => done(true);
+//       img.src = src + (src.includes("?") ? "&" : "?") + "_ab=" + Date.now() + "&rnd=" + Math.random();
+//       setTimeout(() => done(false), ms);
+//     });
+
+//     const detectDNRBlocking = async () => {
+//       try {
+//         const dnrTests = await Promise.all([
+//           fetch('https://googleads.g.doubleclick.net/pagead/id?rnd=' + Date.now(), { mode: 'no-cors', credentials: 'omit' }).then(() => false).catch(() => true),
+//           fetch('https://www.googletagservices.com/tag/js/gpt.js?rnd=' + Date.now(), { mode: 'no-cors' }).then(() => false).catch(() => true),
+//           fetch('https://www.google-analytics.com/analytics.js?rnd=' + Date.now(), { mode: 'no-cors' }).then(() => false).catch(() => true),
+//           fetch('https://connect.facebook.net/en_US/fbevents.js?rnd=' + Date.now(), { mode: 'no-cors' }).then(() => false).catch(() => true)
+//         ]);
+//         return dnrTests.filter(Boolean).length >= 2;
+//       } catch {
+//         return false;
+//       }
+//     };
+
+//     const testUblockLiteSpecific = async () => {
+//       const tests = await Promise.all([
+//         loadScriptProbe("https://www.googletagmanager.com/gtag/js"),
+//         loadScriptProbe("https://connect.facebook.net/en_US/fbevents.js"),
+//         loadScriptProbe("https://www.google-analytics.com/analytics.js"),
+//         fetchProbe("https://stats.g.doubleclick.net/r/collect"),
+//         imageProbe("https://www.facebook.com/tr/")
+//       ]);
+//       return tests.filter(Boolean).length >= 3;
+//     };
+
+//     const detect = async () => {
+//       if (cancelled) return false;
+
+//       try {
+//         const [cosmetic, dnr, ublockLite, googleAds, gpt, analytics, fbTracker] = await Promise.all([
+//           checkDomBait(), detectDNRBlocking(), testUblockLiteSpecific(),
+//           loadScriptProbe("https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"),
+//           loadScriptProbe("https://securepubads.g.doubleclick.net/tag/js/gpt.js"),
+//           loadScriptProbe("https://www.google-analytics.com/analytics.js"),
+//           loadScriptProbe("https://connect.facebook.net/en_US/fbevents.js")
+//         ]);
+
+//         let shouldBlock = false;
+//         let detectedBlocker = "";
+
+//         if (cosmetic || googleAds || gpt) {
+//           shouldBlock = true;
+//           detectedBlocker = cosmetic ? "Traditional AdBlocker" : "Standard AdBlocker";
+//         }
+
+//         if (dnr || ublockLite) {
+//           shouldBlock = true;
+//           detectedBlocker = "DNR-based Blocker";
+//         }
+
+//         if ((analytics && fbTracker) || (ublockLite && !shouldBlock)) {
+//           shouldBlock = true;
+//           detectedBlocker = "Tracker Blocker";
+//         }
+
+//         const blockedCount = [googleAds, gpt, analytics, fbTracker].filter(Boolean).length;
+//         if (blockedCount >= 2 && !shouldBlock) {
+//           shouldBlock = true;
+//           detectedBlocker = "Ad/Tracker Blocker";
+//         }
+
+//         if (!cancelled) {
+//           setDetected(shouldBlock);
+//           setBlockerName(detectedBlocker);
+//           setChecked(true);
+//         }
+
+//         return shouldBlock;
+//       } catch (error) {
+//         if (!cancelled) {
+//           setDetected(false);
+//           setChecked(true);
+//         }
+//         return false;
+//       }
+//     };
+
+//     const initialDetection = async () => {
+//       await timeout(1000);
+//       if (cancelled) return;
+//       let wasDetected = await detect();
+//       if (!wasDetected) {
+//         await timeout(1500);
+//         wasDetected = await detect();
+//       }
+//       if (wasDetected && !cancelled) {
+//         const intervalId = setInterval(() => {
+//           if (cancelled) { clearInterval(intervalId); return; }
+//           detect();
+//         }, 4000);
+//       }
+//     };
+
+//     initialDetection();
+
+//     return () => { cancelled = true; };
+//   }, []);
+
+//   // Admin View
+//   if (isAdmin) {
+//     return (
+//       <div className="relative w-full min-h-screen">
+//         <AdminPanel />
+//         {children}
+//       </div>
+//     );
+//   }
+
+//   // Loading View
+//   if (!checked) {
+//     return <div className="relative w-full min-h-screen">{children}</div>;
+//   }
+
+//   return (
+//     <div className="relative w-full min-h-screen">
+      
+//       {/* Main Content (Hidden when detected) */}
+//       <div style={{ display: detected ? "none" : "block" }}>
+//         {children}
+//       </div>
+
+//       {/* Modern AdBlock Warning Modal */}
+//       <AnimatePresence>
+//         {detected && (
+//           <motion.div 
+//             initial={{ opacity: 0 }}
+//             animate={{ opacity: 1 }}
+//             exit={{ opacity: 0 }}
+//             className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-xl p-6"
+//           >
+//             {/* Animated Gradient Background Blob */}
+//             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-red-600/20 rounded-full blur-[120px] pointer-events-none" />
+
+//             <motion.div 
+//               initial={{ scale: 0.9, y: 20 }}
+//               animate={{ scale: 1, y: 0 }}
+//               className="relative max-w-md w-full bg-gray-900/90 border border-red-500/30 rounded-3xl p-8 shadow-2xl shadow-red-900/40 text-center overflow-hidden"
+//             >
+//               {/* Top Accent Line */}
+//               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-orange-500 to-red-500" />
+
+//               <div className="flex justify-center mb-6">
+//                 <div className="p-4 bg-red-500/10 rounded-full border border-red-500/20 shadow-inner shadow-red-500/10">
+//                   <ShieldAlert className="w-12 h-12 text-red-500" />
+//                 </div>
+//               </div>
+
+//               <h2 className="text-3xl font-bold text-white mb-2">{message.title}</h2>
+              
+//               {blockerName && (
+//                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-900/30 border border-red-500/20 text-red-300 text-xs font-medium mb-6">
+//                   <Ban className="w-3 h-3" />
+//                   {blockerName}
+//                 </div>
+//               )}
+
+//               <div className="space-y-4 text-gray-300 mb-8 leading-relaxed">
+//                 {message.lines.map((l, i) => (
+//                   <p key={i}>{l}</p>
+//                 ))}
+//               </div>
+
+//               <motion.button
+//                 whileHover={{ scale: 1.02 }}
+//                 whileTap={{ scale: 0.98 }}
+//                 onClick={() => window.location.reload()}
+//                 className="w-full py-4 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-bold rounded-xl shadow-lg shadow-red-900/20 flex items-center justify-center gap-2 transition-all"
+//               >
+//                 <RefreshCw className="w-5 h-5" />
+//                 Refresh Page
+//               </motion.button>
+              
+//               <p className="mt-6 text-xs text-gray-500">
+//                 Thank you for supporting our content creators. 💙
+//               </p>
+//             </motion.div>
+//           </motion.div>
+//         )}
+//       </AnimatePresence>
+//     </div>
+//   );
+// }
+
+
+
+
+
+
+
+
+
+
+// "use client";
+// import { useEffect, useMemo, useState } from "react";
+
+// export default function AdBlockGuard({ children }) {
+//   const [detected, setDetected] = useState(false);
+//   const [checked, setChecked] = useState(false);
+//   const [blockerName, setBlockerName] = useState("");
+//   const [isAdmin, setIsAdmin] = useState(false);
+
+//   const message = useMemo(() => ({
+//     title: "AdBlock Detected 🚫",
+//     lines: [
+//       "We noticed you're using an AdBlocker. Ads help us keep this website free and support our creators.",
+//       "Please disable your AdBlocker and refresh the page to continue enjoying our content. 💙",
+//       "Thank you for supporting us!",
+//     ],
+//   }), []);
+
+//   // Admin bypass methods - MOVED OUTSIDE useEffect
+//   const checkAdminStatus = () => {
+//     console.log("Checking admin status...");
+    
+//     // Method 1: URL parameter (e.g., ?admin=true)
+//     const urlParams = new URLSearchParams(window.location.search);
+//     if (urlParams.get('admin') === 'true') {
+//       console.log("Admin mode activated via URL parameter");
+//       localStorage.setItem('adblock_admin', 'true');
+//       return true;
+//     }
+
+//     // Method 2: Local storage flag
+//     if (localStorage.getItem('adblock_admin') === 'true') {
+//       console.log("Admin mode activated via localStorage");
+//       return true;
+//     }
+
+//     // Method 3: Simple password in URL
+//     if (urlParams.get('admin_key') === 'dev123') { // Simple password
+//       console.log("Admin mode activated via password");
+//       localStorage.setItem('adblock_admin', 'true');
+//       return true;
+//     }
+
+//     console.log("Admin mode not active");
+//     return false;
+//   };
+
+//   // Admin control functions
+//   const enableAdminMode = () => {
+//     localStorage.setItem('adblock_admin', 'true');
+//     setIsAdmin(true);
+//     setDetected(false);
+//     setChecked(true);
+//     // Remove URL parameters
+//     const url = new URL(window.location);
+//     url.searchParams.delete('admin');
+//     url.searchParams.delete('admin_key');
+//     window.history.replaceState({}, '', url);
+//   };
+
+//   const disableAdminMode = () => {
+//     localStorage.removeItem('adblock_admin');
+//     setIsAdmin(false);
+//     setChecked(false);
+//     setTimeout(() => window.location.reload(), 1000);
+//   };
+
+//   // Add admin panel component
+//   const AdminPanel = () => (
+//     <div className="fixed top-4 right-4 z-[100000] bg-green-600 text-white p-3 rounded-lg shadow-lg">
+//       <div className="text-sm font-bold mb-2">🔧 Admin Mode Active</div>
+//       <div className="flex gap-2">
+//         <button 
+//           onClick={disableAdminMode}
+//           className="px-2 py-1 text-xs bg-red-500 hover:bg-red-600 rounded transition"
+//         >
+//           Disable
+//         </button>
+//         <button 
+//           onClick={() => {
+//             setDetected(true);
+//             setChecked(true);
+//           }}
+//           className="px-2 py-1 text-xs bg-blue-500 hover:bg-blue-600 rounded transition"
+//         >
+//           Test Block
+//         </button>
+//       </div>
+//     </div>
+//   );
+
+//   useEffect(() => {
+//     // Check admin status FIRST before any detection
+//     const adminStatus = checkAdminStatus();
+//     console.log("Admin status:", adminStatus);
+//     setIsAdmin(adminStatus);
+    
+//     if (adminStatus) {
+//       console.log("Skipping adblock detection - admin mode active");
+//       setChecked(true);
+//       setDetected(false);
+//       return; // Skip all adblock detection for admins
+//     }
+
+//     console.log("Starting adblock detection...");
+//     let cancelled = false;
+
+//     const timeout = (ms) => new Promise((res) => setTimeout(res, ms));
+
+//     const checkDomBait = async () => {
+//       try {
+//         return await new Promise((resolve) => {
+//           const wrap = document.createElement("div");
+//           const bait = document.createElement("div");
+//           const ins = document.createElement("ins");
+//           bait.className = "ads ad ad-banner advert advertisement sponsor pub_300x250 ad-container ad-slot adsbox doubleclick google-ads text-ad ad-unit ad-space ad-placeholder";
+//           bait.id = "ad-banner ad-container google-ads frame ad-frame";
+//           ins.className = "adsbygoogle ad adsbox sponsor ad-unit";
+//           Object.assign(wrap.style, { position: "absolute", left: "-9999px", top: "-9999px" });
+//           Object.assign(bait.style, { width: "300px", height: "250px" });
+//           Object.assign(ins.style, { width: "1px", height: "1px", display: "block" });
+//           wrap.appendChild(bait);
+//           wrap.appendChild(ins);
+//           document.body.appendChild(wrap);
+
+//           let removed = false;
+//           const mo = new MutationObserver(() => {
+//             if (!wrap.isConnected || !bait.isConnected || !ins.isConnected) {
+//               removed = true;
+//             }
+//           });
+//           mo.observe(wrap, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
+
+//           requestAnimationFrame(() => {
+//             const cs1 = window.getComputedStyle(bait);
+//             const cs2 = window.getComputedStyle(ins);
+//             const hidden =
+//               removed ||
+//               cs1.display === "none" ||
+//               cs1.visibility === "hidden" ||
+//               cs1.opacity === "0" ||
+//               cs1.height === "0px" ||
+//               bait.offsetHeight === 0 ||
+//               cs2.display === "none" ||
+//               cs2.visibility === "hidden" ||
+//               cs2.opacity === "0" ||
+//               cs2.height === "0px" ||
+//               ins.offsetHeight === 0;
+//             wrap.remove();
+//             mo.disconnect();
+//             resolve(!!hidden);
+//           });
+//         });
+//       } catch {
+//         return false;
+//       }
+//     };
+
+//     const loadScriptProbe = (src, ms = 3000) => {
+//       return new Promise((resolve) => {
+//         const s = document.createElement("script");
+//         let settled = false;
+//         const done = (val) => { if (!settled) { settled = true; resolve(val); } s.remove(); };
+//         s.async = true;
+//         s.src = src + (src.includes("?") ? "&" : "?") + "_ab=" + Date.now() + "&rnd=" + Math.random();
+//         s.onload = () => done(false);
+//         s.onerror = () => done(true);
+//         document.head.appendChild(s);
+//         setTimeout(() => done(false), ms);
+//       });
+//     };
+
+//     const fetchProbe = async (url, ms = 2500) => {
+//       try {
+//         const controller = new AbortController();
+//         const to = setTimeout(() => controller.abort(), ms);
+//         const resp = await fetch(url + (url.includes("?") ? "&" : "?") + "_ab=" + Date.now() + "&rnd=" + Math.random(), { 
+//           signal: controller.signal, 
+//           credentials: "omit",
+//           method: 'GET'
+//         });
+//         clearTimeout(to);
+//         return false;
+//       } catch (error) {
+//         return error.name === 'TypeError' || error.name === 'NetworkError';
+//       }
+//     };
+
+//     const imageProbe = (src, ms = 3000) => new Promise((resolve) => {
+//       let settled = false;
+//       const done = (val) => { if (!settled) { settled = true; resolve(val); } };
+//       const img = new Image();
+//       img.onload = () => done(false);
+//       img.onerror = () => done(true);
+//       img.src = src + (src.includes("?") ? "&" : "?") + "_ab=" + Date.now() + "&rnd=" + Math.random();
+//       setTimeout(() => done(false), ms);
+//     });
+
+//     const detectDNRBlocking = async () => {
+//       try {
+//         const dnrTests = await Promise.all([
+//           fetch('https://googleads.g.doubleclick.net/pagead/id?rnd=' + Date.now(), {
+//             mode: 'no-cors',
+//             credentials: 'omit'
+//           }).then(() => false).catch(() => true),
+          
+//           fetch('https://www.googletagservices.com/tag/js/gpt.js?rnd=' + Date.now(), {
+//             mode: 'no-cors'
+//           }).then(() => false).catch(() => true),
+          
+//           fetch('https://www.google-analytics.com/analytics.js?rnd=' + Date.now(), {
+//             mode: 'no-cors'
+//           }).then(() => false).catch(() => true),
+          
+//           fetch('https://connect.facebook.net/en_US/fbevents.js?rnd=' + Date.now(), {
+//             mode: 'no-cors'
+//           }).then(() => false).catch(() => true)
+//         ]);
+
+//         return dnrTests.filter(Boolean).length >= 2;
+//       } catch {
+//         return false;
+//       }
+//     };
+
+//     const testUblockLiteSpecific = async () => {
+//       const tests = await Promise.all([
+//         loadScriptProbe("https://www.googletagmanager.com/gtag/js"),
+//         loadScriptProbe("https://connect.facebook.net/en_US/fbevents.js"),
+//         loadScriptProbe("https://www.google-analytics.com/analytics.js"),
+//         fetchProbe("https://stats.g.doubleclick.net/r/collect"),
+//         imageProbe("https://www.facebook.com/tr/")
+//       ]);
+
+//       return tests.filter(Boolean).length >= 3;
+//     };
+
+//     const detect = async () => {
+//       if (cancelled) return false;
+
+//       try {
+//         const [
+//           cosmeticFiltering,
+//           dnrBlocking,
+//           ublockLiteSpecific,
+//           googleAdsBlocked,
+//           gptBlocked,
+//           analyticsBlocked,
+//           facebookTrackerBlocked
+//         ] = await Promise.all([
+//           checkDomBait(),
+//           detectDNRBlocking(),
+//           testUblockLiteSpecific(),
+//           loadScriptProbe("https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"),
+//           loadScriptProbe("https://securepubads.g.doubleclick.net/tag/js/gpt.js"),
+//           loadScriptProbe("https://www.google-analytics.com/analytics.js"),
+//           loadScriptProbe("https://connect.facebook.net/en_US/fbevents.js")
+//         ]);
+
+//         console.log('Adblock detection results:', {
+//           cosmeticFiltering,
+//           dnrBlocking, 
+//           ublockLiteSpecific,
+//           googleAdsBlocked,
+//           gptBlocked,
+//           analyticsBlocked,
+//           facebookTrackerBlocked
+//         });
+
+//         let shouldBlock = false;
+//         let detectedBlocker = "";
+
+//         if (cosmeticFiltering || googleAdsBlocked || gptBlocked) {
+//           shouldBlock = true;
+//           if (cosmeticFiltering) {
+//             detectedBlocker = "Traditional AdBlocker (uBlock Origin, AdGuard)";
+//           } else {
+//             detectedBlocker = "AdBlocker (AdBlock, AdBlock Plus)";
+//           }
+//         }
+
+//         if (dnrBlocking || ublockLiteSpecific) {
+//           shouldBlock = true;
+//           detectedBlocker = "DNR-based Blocker (uBlock Origin Lite, Brave Shields)";
+//         }
+
+//         if ((analyticsBlocked && facebookTrackerBlocked) || (ublockLiteSpecific && !shouldBlock)) {
+//           shouldBlock = true;
+//           detectedBlocker = "Privacy/Tracker Blocker (uBlock Origin Lite, Privacy Badger)";
+//         }
+
+//         const blockedCount = [googleAdsBlocked, gptBlocked, analyticsBlocked, facebookTrackerBlocked].filter(Boolean).length;
+//         if (blockedCount >= 2 && !shouldBlock) {
+//           shouldBlock = true;
+//           detectedBlocker = "Ad/Tracker Blocker";
+//         }
+
+//         if (!cancelled) {
+//           setDetected(shouldBlock);
+//           setBlockerName(detectedBlocker);
+//           setChecked(true);
+//         }
+
+//         return shouldBlock;
+//       } catch (error) {
+//         console.error('Adblock detection error:', error);
+//         if (!cancelled) {
+//           setDetected(false);
+//           setChecked(true);
+//         }
+//         return false;
+//       }
+//     };
+
+//     const initialDetection = async () => {
+//       await timeout(1000);
+//       if (cancelled) return;
+      
+//       let wasDetected = await detect();
+      
+//       if (!wasDetected) {
+//         await timeout(1500);
+//         wasDetected = await detect();
+//       }
+
+//       if (wasDetected && !cancelled) {
+//         const intervalId = setInterval(() => {
+//           if (cancelled) {
+//             clearInterval(intervalId);
+//             return;
+//           }
+//           detect();
+//         }, 4000);
+//       }
+//     };
+
+//     initialDetection();
+
+//     return () => {
+//       cancelled = true;
+//     };
+//   }, []);
+
+//   // If admin, show content immediately - SIMPLIFIED
+//   if (isAdmin) {
+//     return (
+//       <div className="relative w-full min-h-screen">
+//         <AdminPanel />
+//         {children}
+//       </div>
+//     );
+//   }
+
+//   // Show loading state while checking
+//   if (!checked) {
+//     return (
+//       <div className="relative w-full min-h-screen">
+//         {children}
+//       </div>
+//     );
+//   }
+
+//   return (
+//     <div className="relative w-full min-h-screen">
+//       <div style={{ display: detected ? "none" : "block" }}>
+//         {children}
+        
+//         {/* Add admin enable button in the corner for easy access */}
+//         {/* {!detected && (
+//           <div className="fixed bottom-4 right-4 z-50">
+//             <button 
+//               onClick={enableAdminMode}
+//               className="px-3 py-2 text-xs bg-gray-800 text-white rounded opacity-50 hover:opacity-100 transition"
+//               title="Enable Admin Mode"
+//             >
+//               🔧 Admin
+//             </button>
+//           </div>
+//         )} */}
+//       </div>
+
+//       {detected && (
+//         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 text-white p-6">
+//           <div className="max-w-lg w-full text-center">
+//             <h2 className="text-3xl font-bold mb-4">{message.title}</h2>
+//             <div className="text-sm sm:text-base text-gray-200 space-y-3 leading-relaxed">
+//               {message.lines.map((l, i) => (
+//                 <p key={i}>{l}</p>
+//               ))}
+//               {blockerName && (
+//                 <p className="mt-4 text-base font-semibold text-red-400">Detected: {blockerName}</p>
+//               )}
+              
+//               {/* Admin access section */}
+//               {/* <div className="mt-6 p-4 bg-gray-800 rounded-lg">
+//                 <p className="text-gray-300 mb-3">Developer/Admin Access:</p>
+//                 <div className="flex flex-col gap-2">
+//                   <button 
+//                     onClick={enableAdminMode}
+//                     className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded transition"
+//                   >
+//                     Enable Admin Mode
+//                   </button>
+//                   <p className="text-xs text-gray-400">
+//                     Or add <code className="bg-gray-700 px-1 rounded">?admin=true</code> to URL
+//                   </p>
+//                 </div>
+//               </div> */}
+//             </div>
+//             <div className="mt-6 flex items-center justify-center gap-3">
+//               <button
+//                 onClick={() => window.location.reload()}
+//                 className="px-5 py-2 rounded bg-white text-black font-medium hover:bg-gray-200 transition"
+//               >
+//                 Refresh Page
+//               </button>
+//             </div>
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
 
 
 

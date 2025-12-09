@@ -38,7 +38,7 @@ export default function CourseDetailPage() {
 
   const startCountdown = (flatIndex) => {
     if (enabledItems.has(flatIndex)) return;
-    setCountdowns((prev) => ({ ...prev, [flatIndex]: 10 }));
+    setCountdowns((prev) => ({ ...prev, [flatIndex]: 23 }));
     const interval = setInterval(() => {
       setCountdowns((prev) => {
         const current = (prev[flatIndex] ?? 0) - 1;
@@ -500,7 +500,7 @@ export default function CourseDetailPage() {
                                                   ? `Section ${sIdx + 1} • Item ${i + 1}`
                                                   : (countdown != null
                                                       ? `⏳ Unlocking in ${Math.max(0, countdown)}s...`
-                                                      : `🔒 Click to unlock (10s)`))
+                                                      : `🔒 Click to unlock (23s)`))
                                               : "Not available"}
                                           </p>
                                         </div>
