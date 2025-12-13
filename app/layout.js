@@ -37,9 +37,10 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
-  <meta name="monetag" content="a3db752e3b9c2b9df03ac72e177cba36"></meta>
+  {/* <meta name="monetag" content="a3db752e3b9c2b9df03ac72e177cba36"></meta> */}
       {/* ================= META TAGS ================= */}
       </head>
+      {/* <script>(function(s){s.dataset.zone='10317481',s.src='https://al5sm.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script> */}
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white`}
       >
@@ -49,7 +50,7 @@ export default function RootLayout({ children }) {
           {/* Global keyboard shortcuts (F for fullscreen) */}
           <GlobalHotkeys />
           {/* Load third-party scripts after hydration, prod-only */}
-          {/* <ThirdPartyScripts /> */}
+          <ThirdPartyScripts />
           {/* ================= HEADER ================= */}
           <Header className="bg-black text-white shadow-md sticky top-0 z-50" />
           {/* ========================================== */}

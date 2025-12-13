@@ -1,86 +1,91 @@
-// "use client";
-// import { useEffect } from "react";
+"use client";
+import { useEffect } from "react";
 
-// export default function ThirdPartyScripts() {
-//   useEffect(() => {
-//     // ---------------------------------------------------------
-//     // 1. Monetag Verification Meta Tag
-//     // ---------------------------------------------------------
-//     if (!document.querySelector('meta[name="monetag"]')) {
-//       try {
-//         const meta = document.createElement("meta");
-//         meta.name = "monetag";
-//         meta.content = "a3db752e3b9c2b9df03ac72e177cba36";
-//         document.head.appendChild(meta);
-//       } catch (e) {
-//         console.error("Monetag meta tag error:", e);
-//       }
-//     }
+export default function ThirdPartyScripts() {
+  useEffect(() => {
+    // ---------------------------------------------------------
+    // 1. Monetag Verification Meta Tag
+    // ---------------------------------------------------------
+    if (!document.querySelector('meta[name="monetag"]')) {
+      try {
+        const meta = document.createElement("meta");
+        meta.name = "monetag";
+        meta.content = "a3db752e3b9c2b9df03ac72e177cba36";
+        document.head.appendChild(meta);
+      } catch (e) {
+        console.error("Monetag meta tag error:", e);
+      }
+    }
 
-//     // ---------------------------------------------------------
-//     // 2. Checks (Production & Admin Bypass)
-//     // ---------------------------------------------------------
-//     if (process.env.NODE_ENV !== "production") return;
+    // ---------------------------------------------------------
+    // 2. Checks (Production & Admin Bypass)
+    // ---------------------------------------------------------
+    if (process.env.NODE_ENV !== "production") return;
 
-//     try {
-//       const sp = new URLSearchParams(window.location.search);
-//       const isAdmin = sp.get("admin") === "true";
-//       if (isAdmin) {
-//         window.__BF_DISABLE_ADS__ = true;
-//         return; // Sab ads rok do
-//       }
-//     } catch {}
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const isAdmin = sp.get("admin") === "true";
+      if (isAdmin) {
+        window.__BF_DISABLE_ADS__ = true;
+        return; // Sab ads rok do
+      }
+    } catch {}
 
-//     // Variables to hold script references for cleanup
-//     let script1 = null;
-//     let script2 = null;
+    // Cleanup reference variables
+    let script1 = null;
+    let script2 = null;
+    let script3 = null;
 
-//     // ---------------------------------------------------------
-//     // 3. Script 1: Hotbyuyixa (Old Script)
-//     // ---------------------------------------------------------
-//     try {
-//       const s1 = document.createElement("script");
-//       s1.src = "https://hotbyuyixa.today/process.js?id=1550579975&p1=sub1&p2=sub2&p3=sub3&p4=sub4";
-//       s1.async = true;
-//       document.body.appendChild(s1);
-//       script1 = s1;
-//     } catch (e) {
-//       console.error("Script 1 error:", e);
-//     }
+    // ---------------------------------------------------------
+    // Script 1: Hotbyuyixa (Old Script)
+    // ---------------------------------------------------------
+    try {
+      const s1 = document.createElement("script");
+      s1.src = "https://hotbyuyixa.today/process.js?id=1550579975&p1=sub1&p2=sub2&p3=sub3&p4=sub4";
+      s1.async = true;
+      document.body.appendChild(s1);
+      script1 = s1;
+    } catch (e) {}
 
-//     // ---------------------------------------------------------
-//     // 4. Script 2: Giriudog (NEW SCRIPT ADDED HERE)
-//     // ---------------------------------------------------------
-//     try {
-//       const s2 = document.createElement("script");
-//       s2.src = "//wwr.giriudog.com/?tag=793e9f46";
-//       // data-cfasync='false' ko attribute ke taur par set karna zaroori hai
-//       s2.setAttribute("data-cfasync", "false"); 
-//       // Ads ke liye async true rakhna behtar hota hai taaki site slow na ho
-//       s2.async = true; 
-//       document.body.appendChild(s2);
-//       script2 = s2;
-//     } catch (e) {
-//       console.error("Script 2 error:", e);
-//     }
+    // ---------------------------------------------------------
+    // Script 2: Giriudog
+    // ---------------------------------------------------------
+    try {
+      const s2 = document.createElement("script");
+      s2.src = "//wwr.giriudog.com/?tag=793e9f46";
+      s2.setAttribute("data-cfasync", "false"); 
+      s2.async = true; 
+      document.body.appendChild(s2);
+      script2 = s2;
+    } catch (e) {}
 
-//     // ---------------------------------------------------------
-//     // 5. Cleanup Function
-//     // ---------------------------------------------------------
-//     return () => {
-//       try {
-//         if (script1 && document.body.contains(script1)) {
-//           document.body.removeChild(script1);
-//         }
-//         if (script2 && document.body.contains(script2)) {
-//           document.body.removeChild(script2);
-//         }
-//       } catch {}
-//     };
-//   }, []);
+    // ---------------------------------------------------------
+    // Script 3: Al5sm (NEW ADDED - Zone 10317481)
+    // ---------------------------------------------------------
+    // Yeh wahi code hai jo error de raha tha, lekin yahan React way mein likha hai
+    try {
+      const s3 = document.createElement("script");
+      s3.src = "https://al5sm.com/tag.min.js";
+      s3.dataset.zone = "10317481"; // Zone ID yahan set hoti hai
+      document.body.appendChild(s3);
+      script3 = s3;
+    } catch (e) {}
 
-//   return null;
-// }
+
+    // ---------------------------------------------------------
+    // Cleanup Function (Jab component hategi tab scripts bhi hatengi)
+    // ---------------------------------------------------------
+    return () => {
+      try {
+        if (script1) document.body.removeChild(script1);
+        if (script2) document.body.removeChild(script2);
+        if (script3) document.body.removeChild(script3);
+      } catch {}
+    };
+  }, []);
+
+  return null;
+}
 
 
 
