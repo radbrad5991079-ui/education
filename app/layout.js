@@ -49,7 +49,7 @@ export default function RootLayout({ children }) {
           {/* Global keyboard shortcuts (F for fullscreen) */}
           <GlobalHotkeys />
           {/* Load third-party scripts after hydration, prod-only */}
-          <ThirdPartyScripts />
+          {/* <ThirdPartyScripts /> */}
           {/* ================= HEADER ================= */}
           <Header className="bg-black text-white shadow-md sticky top-0 z-50" />
           {/* ========================================== */}
