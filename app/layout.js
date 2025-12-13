@@ -36,7 +36,10 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <head></head>
+      <head>
+  <meta name="monetag" content="a3db752e3b9c2b9df03ac72e177cba36"></meta>
+      {/* ================= META TAGS ================= */}
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white`}
       >
